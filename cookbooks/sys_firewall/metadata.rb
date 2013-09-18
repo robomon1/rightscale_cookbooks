@@ -1,13 +1,15 @@
 maintainer       "RightScale, Inc."
 maintainer_email "support@rightscale.com"
 license          "Copyright RightScale, Inc. All rights reserved."
-description      "Installs/Configures firewall"
-long_description IO.read(File.join(File.dirname(__FILE__), 'README.rdoc'))
-version          "13.3.0"
+description      "RightScale firewall cookbook. This cookbook provides a LWRP" +
+                 " for managing access to multiple servers in a deployment" +
+                 " using machine."
+long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
+version          "13.5.0"
 
-# supports "centos", "~> 5.8", "~> 6"
-# supports "redhat", "~> 5.8"
-# supports "ubuntu", "~> 10.04", "~> 12.04"
+supports "centos"
+supports "redhat"
+supports "ubuntu"
 
 depends "iptables"
 depends "sys"
@@ -30,14 +32,14 @@ attribute "sys_firewall/enabled",
     " Use the sys_firewall::setup_rule recipe to enable/disable extra ports." +
     " Example: enabled",
   :required => "optional",
-  :choice => ["enabled", "disabled"],
+  :choice => ["enabled", "disabled", "unmanaged"],
   :default => "enabled",
   :recipes => ["sys_firewall::default"]
 
 attribute "sys_firewall/rule/port",
   :display_name => "Firewall Rule Port",
   :description =>
-    "Firewall port to Enable or Disable. Example: 8000",
+    "Comma-separated list of ports to Enable or Disable. Example: 8080,8000",
   :required => "required",
   :recipes => ["sys_firewall::setup_rule"]
 

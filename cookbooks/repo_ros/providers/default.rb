@@ -1,11 +1,16 @@
 #
 # Cookbook Name:: repo_ros
 #
-# Copyright RightScale, Inc. All rights reserved.  All access and use subject to the
-# RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
-# if applicable, other agreements such as a RightScale Master Subscription Agreement.
+# Copyright RightScale, Inc. All rights reserved.
+# All access and use subject to the RightScale Terms of Service available at
+# http://www.rightscale.com/terms.php and, if applicable, other agreements
+# such as a RightScale Master Subscription Agreement.
 
-# Setup repository attributes.
+# @resource repo
+
+require 'json'
+
+# Sets up repository attributes.
 action :setup_attributes do
 
   # Checking ros_util presence it is required for repo_ros correct operations
@@ -20,10 +25,13 @@ action :setup_attributes do
   raise "  Storage account provider ID input is unset" unless new_resource.account
   raise "  Storage account secret input is unset" unless new_resource.credential
   raise "  Repo container name input is unset." unless new_resource.repository
+  if new_resource.endpoint
+      log "  Using input provided ROS endpoint: #{new_resource.endpoint}"
+  end
 end
 
 
-# Pull code from a determined repository to a specified destination.
+# Pulls code from a determined repository to a specified destination.
 action :pull do
 
   # Checking attributes
@@ -43,6 +51,23 @@ action :pull do
   # Ensure that destination directory exists after all backups.
   directory "#{new_resource.destination}"
 
+  # Overrides default endpoint or for generic storage clouds such as Swift.
+  # Is set as ENV['STORAGE_OPTIONS'] for ros_util.
+  options =
+    unless new_resource.endpoint.empty?
+      {'STORAGE_OPTIONS' => JSON.dump({
+        :endpoint => new_resource.endpoint,
+        :cloud => new_resource.storage_account_provider.to_sym
+      })}
+    else
+      {}
+    end
+
+  environment_variables = {
+    'STORAGE_ACCOUNT_ID' => new_resource.account,
+    'STORAGE_ACCOUNT_SECRET' => new_resource.credential
+  }.merge(options)
+
   # "true" we just put downloaded file into "destination" folder
   # "false" we put downloaded file into /tmp and unpack it into "destination" folder
   if (new_resource.unpack_source == true)
@@ -55,12 +80,8 @@ action :pull do
   # Obtain the source from ROS
   execute "Download #{new_resource.repository} from Remote Object Store" do
     command "/opt/rightscale/sandbox/bin/ros_util get --cloud #{new_resource.storage_account_provider} --container #{new_resource.repository} --dest #{tmp_repo_path} --source #{new_resource.prefix} --latest"
-    environment ({
-      'STORAGE_ACCOUNT_ID' => new_resource.account,
-      'STORAGE_ACCOUNT_SECRET' => new_resource.credential
-    })
+    environment environment_variables
   end
-
 
   bash "Unpack #{tmp_repo_path} to #{new_resource.destination}" do
     cwd "/tmp"
@@ -74,7 +95,8 @@ action :pull do
 end
 
 
-# Pull code from a determined repository to a specified destination and create a capistrano-style deployment.
+# Pulls code from a determined repository to a specified destination and create
+# a capistrano-style deployment.
 action :capistrano_pull do
 
   log "  Recreating project directory for :pull action"

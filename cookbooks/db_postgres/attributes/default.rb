@@ -8,3 +8,10 @@
 
 # Recommended attributes
 default[:db_postgres][:server_usage] = "dedicated" # or "shared"
+
+# Optional attributes
+
+# Port on which postgres listens. Used by app servers to connect.
+default[:db_postgres][:port] = "5432"
+
+default[:db_postgres][:tunable] = {}

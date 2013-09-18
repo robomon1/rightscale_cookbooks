@@ -1,13 +1,15 @@
 maintainer       "RightScale, Inc."
 maintainer_email "support@rightscale.com"
 license          "Copyright RightScale, Inc. All rights reserved."
-description      "Abstract cookbook for managing source code repositories."
-long_description IO.read(File.join(File.dirname(__FILE__), 'README.rdoc'))
-version          "13.3.0"
+description      "This cookbook provides abstract 'repo' resource for managing" +
+                 " code download from Git, Subversion or Remote Object Store" +
+                 " (ROS) code  repositories."
+long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
+version          "13.5.0"
 
-# supports "centos", "~> 5.8", "~> 6"
-# supports "redhat", "~> 5.8"
-# supports "ubuntu", "~> 10.04", "~> 12.04"
+supports "centos"
+supports "redhat"
+supports "ubuntu"
 
 depends "rightscale"
 depends "repo_svn"
@@ -18,7 +20,8 @@ depends "repo_rsync"
 
 recipe "repo::default",
   "Sets up repo resource and provider."
-
+recipe "repo::do_pull",
+  "Performs the specified pull action set in repo/default/perform_action"
 
 attribute "repo/default/provider",
   :display_name => "Repository Provider",
@@ -74,6 +77,16 @@ attribute "repo/default/credential",
   :required => "recommended",
   :recipes => ["repo::default"]
 
+attribute "repo/default/endpoint",
+  :display_name => "Storage Cloud Endpoint URL",
+  :description =>
+    "The endpoint URL for the storage cloud. This is used to override the" +
+    " default endpoint or for generic storage clouds such as Swift." +
+    " Example: http://endpoint_ip:5000/v2.0/tokens",
+  :required => "optional",
+  :default => "",
+  :recipes => ["repo::default"]
+
 attribute "repo/default/ssh_host_key",
   :display_name => "Known hosts ssh key",
   :description =>
@@ -117,10 +130,11 @@ attribute "repo/default/storage_account_provider",
   :required => "optional",
   :choice => [
     "s3",
-    "cloudfiles",
-    "cloudfilesuk",
+    "Cloud_Files",
+    "Cloud_Files_UK",
     "google",
     "azure",
+    "swift",
     "SoftLayer_Dallas",
     "SoftLayer_Singapore",
     "SoftLayer_Amsterdam"
@@ -135,4 +149,3 @@ attribute "repo/default/prefix",
     " specify 'myapp' as the ROS Prefix. Example: myapp",
   :required => "optional",
   :recipes => ["repo::default"]
-

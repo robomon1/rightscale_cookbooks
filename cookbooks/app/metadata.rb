@@ -1,13 +1,15 @@
 maintainer       "RightScale, Inc."
 maintainer_email "support@rightscale.com"
 license          "Copyright RightScale, Inc. All rights reserved."
-description      "Common utilities for RightScale managed application servers"
-long_description IO.read(File.join(File.dirname(__FILE__), 'README.rdoc'))
-version          "13.3.0"
+description      "RightScale application server management cookbook. This" +
+                 " cookbook contains recipes that are generally applicable to" +
+                 " all applications."
+long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
+version          "13.5.0"
 
-# supports "centos", "~> 5.8", "~> 6"
-# supports "redhat", "~> 5.8"
-# supports "ubuntu", "~> 10.04", "~> 12.04"
+supports "centos"
+supports "redhat"
+supports "ubuntu"
 
 depends "sys_firewall"
 depends "rightscale"
@@ -17,6 +19,7 @@ depends "app_passenger"
 depends "app_tomcat"
 depends "db"
 depends "app_django"
+depends "app_jboss"
 
 recipe "app::install_server",
   "Adds the appserver:active=true, appserver:listen_ip=<ip> and" +
@@ -28,25 +31,25 @@ recipe "app::install_server",
 
 recipe "app::do_loadbalancers_allow",
   "Allows connections from all load balancers within a given listener pool" +
-  " which are tagged with loadbalancer:lb=<applistener_name>." +
+  " which are tagged with loadbalancer:<pool_name>=lb." +
   " This script should be run on an application server before it makes" +
   " a request to be connected to the load balancers."
 
 recipe "app::do_loadbalancers_deny",
   "Denies connections from all load balancers which are tagged with" +
-  " loadbalancer:lb=<applistener_name>. For example, you can run this" +
+  " loadbalancer:<pool_name>=lb. For example, you can run this" +
   " script on an application server to deny connections from all load" +
   " balancers within a given listener pool."
 
 recipe "app::request_loadbalancer_allow",
   "Sends a request to all application servers tagged with" +
-  " loadbalancer:app=<applistener_name> to allow connections from the server's" +
+  " loadbalancer:<pool_name>=app to allow connections from the server's" +
   " private IP address. This script should be run on a load balancer before" +
   " any application servers are attached to it."
 
 recipe "app::request_loadbalancer_deny",
   "Sends a request to all application servers tagged with" +
-  " loadbalancer:app=<applistener_name> to deny connections from the server's" +
+  " loadbalancer:<pool_name>=app to deny connections from the server's" +
   " private IP address. This script should be run on a load balancer after" +
   " disconnecting application servers or upon decommissioning."
 
@@ -64,7 +67,6 @@ recipe "app::do_update_code",
   "Updates application source files from the remote repository. This recipe" +
   " will call the corresponding provider from the app server cookbook," +
   " which will download/update application source code."
-
 
 recipe "app::setup_monitoring",
   "Installs collectd monitoring. This recipe will call the corresponding" +
@@ -117,12 +119,12 @@ attribute "app/database_name",
   :recipes => ["app::setup_db_connection"]
 
 attribute "app/backend_ip_type",
-  :display_name => "Application ip type given to loadbalancer",
+  :display_name => "Application IP Type Given to Load Balancer",
   :description =>
-    "The ip type that the application service is listening on." +
-    " Example: Private",
-  :choice => ["Public", "Private"],
+    "Specify the IP type where the application server is listening." +
+    " Example: private",
+  :choice => ["public", "private"],
   :required => "optional",
-  :default => "Private",
+  :default => "private",
   :recipes => ["app::install_server"],
   :required => "optional"

@@ -1,13 +1,16 @@
 maintainer       "RightScale, Inc."
 maintainer_email "support@rightscale.com"
 license          "Copyright RightScale, Inc. All rights reserved."
-description      "RighScale LB Manager"
-long_description IO.read(File.join(File.dirname(__FILE__), 'README.rdoc'))
-version          "13.3.0"
+description      "This cookbook provides a set of load balancer recipes used" +
+                 " by the RightScale Load Balancer ServerTemplates. This" +
+                 " cookbook does not  contain a specific load balancer" +
+                 " implementation, but generic recipes that use the LWRP interface."
+long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
+version          "13.5.0"
 
-# supports "centos", "~> 5.8", "~> 6"
-# supports "redhat", "~> 5.8"
-# supports "ubuntu", "~> 10.04", "~> 12.04"
+supports "centos"
+supports "redhat"
+supports "ubuntu"
 
 depends "lb_haproxy"
 depends "lb_clb"
@@ -62,7 +65,8 @@ attribute "lb/pools",
   :display_name => "Load Balance Pools",
   :description =>
     "Comma-separated list of URIs or FQDNs for which the load balancer" +
-    " will create server pools to answer website requests." +
+    " will create server pools to answer website requests. The order of the" +
+    " items in the list will be preserved when answering to requests." +
     " Last entry will be the default backend and will answer for all URIs and" +
     " FQDNs not listed here. A single entry of any name, e.g. 'default', " +
     " 'www.mysite.com' or '/appserver', will mimic basic behavior of" +

@@ -1,9 +1,10 @@
 ;
 ; Cookbook Name:: logging_rsyslog
 ;
-; Copyright RightScale, Inc. All rights reserved.  All access and use subject to the
-; RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
-; if applicable, other agreements such as a RightScale Master Subscription Agreement.
+; Copyright RightScale, Inc. All rights reserved.
+; All access and use subject to the RightScale Terms of Service available at
+; http://www.rightscale.com/terms.php and, if applicable, other agreements
+; such as a RightScale Master Subscription Agreement.
 ;
 ; Managed by RightScale
 ; DO NOT EDIT BY HAND
@@ -14,7 +15,7 @@
 cert = /etc/stunnel/stunnel.pem
 
 ; Protocol version (all, SSLv2, SSLv3, TLSv1)
-<% unless node[:platform_version] =~ /^5\..+/ %>
+<% unless @platform_version =~ /^5\..+/ %>
 <%# Cannot force this option for CentOS/RedHat 5.8 %>
 sslVersion = SSLv3
 <% end %>

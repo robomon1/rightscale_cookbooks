@@ -1,13 +1,14 @@
 maintainer       "RightScale, Inc."
 maintainer_email "support@rightscale.com"
 license          "Copyright RightScale, Inc. All rights reserved."
-description      "Installs/configures a MySQL database client and server."
-long_description IO.read(File.join(File.dirname(__FILE__), 'README.rdoc'))
-version          "13.3.0"
+description      "Provides the MySQL implementation of the 'db' resource to" +
+                 " install and manage MySQL database stand-alone servers and clients."
+long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
+version          "13.5.0"
 
-# supports "centos", "~> 5.8", "~> 6"
-# supports "redhat", "~> 5.8"
-# supports "ubuntu", "~> 10.04", "~> 12.04"
+supports "centos"
+supports "redhat"
+supports "ubuntu"
 
 depends "db"
 depends "block_device"
@@ -92,7 +93,7 @@ attribute "db_mysql/init_timeout",
     "db_mysql::setup_server_5_5"
   ]
 
-attribute "db_mysql/tunable/expire_logs_days",
+attribute "db_mysql/expire_logs_days",
   :display_name => "MySQL Expire Logs Days",
   :description =>
     "Defines number of days to wait until the log expires. Default: 2",

@@ -1,13 +1,14 @@
 maintainer       "RightScale, Inc."
 maintainer_email "support@rightscale.com"
 license          "Copyright RightScale, Inc. All rights reserved."
-description      "Installs/Configures block device storage."
-long_description IO.read(File.join(File.dirname(__FILE__), 'README.rdoc'))
-version          "13.3.0"
+description      "This cookbook provides the building blocks for Multi-Cloud" +
+                 " backup/restore support."
+long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
+version          "13.5.0"
 
-# supports "centos", "~> 5.8", "~> 6"
-# supports "redhat", "~> 5.8"
-# supports "ubuntu", "~> 10.04", "~> 12.04"
+supports "centos"
+supports "redhat"
+supports "ubuntu"
 
 depends "rightscale"
 
@@ -84,11 +85,12 @@ backup_recipes = [
 # ROS cloud type choices
 ros_clouds = [
   "s3",
-  "cloudfiles",
-  "cloudfilesuk",
+  "Cloud_Files",
+  "Cloud_Files_UK",
   "google",
   "azure",
   "swift",
+  "hp",
   "SoftLayer_Dallas",
   "SoftLayer_Singapore",
   "SoftLayer_Amsterdam"
@@ -114,7 +116,7 @@ attribute "block_device/devices/default/backup/primary/cred/user",
   :description =>
     "Primary cloud authentication credentials. For Rackspace Cloud Files," +
     " use your Rackspace login username (e.g., cred:RACKSPACE_USERNAME)." +
-    " For OpenStack Swift the format is: <tenant-id>:<user-name>." +
+    " For OpenStack Swift the format is: 'tenantID:username'." +
     " For clouds that do not require primary credentials (e.g., Amazon)," +
     " set to 'ignore'. Example: cred:CLOUD_ACCOUNT_USERNAME ",
   :required => "recommended",
@@ -149,7 +151,7 @@ attribute "block_device/devices/default/backup/primary/endpoint",
   :description =>
     "The endpoint URL for the primary backup storage cloud. This is used to" +
     " override the default endpoint or for generic storage clouds" +
-    " such as Swift.Example: http://endpoint_ip:5000/v2.0/tokens",
+    " such as Swift. Example: http://endpoint_ip:5000/v2.0/tokens",
   :required => "optional",
   :default => "",
   :recipes => ["block_device::default"]
@@ -159,7 +161,7 @@ attribute "block_device/devices/default/backup/secondary/cred/user",
   :description =>
     "Secondary cloud authentication credentials. For Rackspace Cloud Files," +
     " use your Rackspace login username (e.g., cred:RACKSPACE_USERNAME)." +
-    " For OpenStack Swift the format is: <tenant-id>:<user-name>." +
+    " For OpenStack Swift the format is: 'tenantID:username'. " +
     " For Amazon S3, use your Amazon key ID (e.g., cred:AWS_ACCESS_KEY_ID)." +
     " Example: cred:CLOUD_ACCOUNT_USERNAME",
   :required => "recommended",
@@ -230,14 +232,28 @@ attribute "block_device/ephemeral/vg_data_percentage",
   :display_name => "Percentage of the ephemeral LVM used for data",
   :description =>
     "The percentage of the total ephemeral Volume Group extents (LVM) that is" +
-    " used for data. (e.g. 50 percent - 1/2 used for data 100 percent - all" +
-    " space is allocated for data. WARNING: Using a non-default value it not" +
+    " used for data (e.g. 50 percent - 1/2 used for data, 100 percent - all" +
+    " space is allocated for data). WARNING: Using a non-default value is not" +
     " recommended. Make sure you understand what you are doing before" +
     " changing this value. Example: 100",
   :type => "string",
   :required => "optional",
   :choice => ["50", "60", "70", "80", "90", "100"],
   :default => "100",
+  :recipes => ["block_device::setup_ephemeral"]
+
+attribute "block_device/ephemeral/file_system_type",
+  :display_name => "Ephemeral File System Type",
+  :description =>
+    "The type of file system that will be installed on the ephemeral device." +
+    " By default, this input will be set to 'xfs'. This input is ignored on" +
+    " Redhat and Google cloud since we do not support 'xfs' on them. The" +
+    " 'ext3' file system will be set up by default on Redhat and Google cloud." +
+    " Example: xfs",
+  :type => "string",
+  :required => "optional",
+  :choice => ["xfs", "ext3"],
+  :default => "xfs",
   :recipes => ["block_device::setup_ephemeral"]
 
 # Multiple Block Devices

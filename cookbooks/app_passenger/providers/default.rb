@@ -1,11 +1,14 @@
 #
 # Cookbook Name:: app_passenger
 #
-# Copyright RightScale, Inc. All rights reserved.  All access and use subject to the
-# RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
-# if applicable, other agreements such as a RightScale Master Subscription Agreement.
+# Copyright RightScale, Inc. All rights reserved.
+# All access and use subject to the RightScale Terms of Service available at
+# http://www.rightscale.com/terms.php and, if applicable, other agreements
+# such as a RightScale Master Subscription Agreement.
 
-# Stop apache/passenger
+# @resource app
+
+# Stops apache/passenger
 action :stop do
   log "  Running stop sequence"
   service "apache2" do
@@ -14,7 +17,7 @@ action :stop do
   end
 end
 
-# Start apache/passenger
+# Starts apache/passenger
 action :start do
   log "  Running start sequence"
   service "apache2" do
@@ -23,7 +26,7 @@ action :start do
   end
 end
 
-# Reload apache/passenger
+# Reloads apache/passenger
 action :reload do
   log "  Running reload sequence"
   service "apache2" do
@@ -32,7 +35,7 @@ action :reload do
   end
 end
 
-# Restart apache/passenger
+# Restarts apache/passenger
 action :restart do
   log "  Running restart sequence"
   # Calls the :stop action.
@@ -42,7 +45,7 @@ action :restart do
   action_start
 end
 
-# Installing required packages to system
+# Installs required packages to system
 action :install do
 
   # Installing some apache development headers required for rubyEE
@@ -50,53 +53,6 @@ action :install do
   log "  Packages which will be installed: #{packages}"
   packages.each do |p|
     package p
-  end
-
-  # On CentOS 6.3 images uninstall ruby 1.9 version and install ruby 1.8
-  # On Ubuntu 12.04 images use update-alternatives cmd and choose ruby 1.8 
-  if node[:platform] =~ /centos|redhat/
-    ruby_packages = ["ruby", "ruby-libs"]
-    ruby_packages.each do |p|
-      r = package p do
-        action :nothing
-      end
-      r.run_action(:remove)
-    end
-
-    # Install ruby 1.8 using bash block instead of package resource because
-    # we can use wildcard to install the latest ruby 1.8 patch level.
-    # Package resource requires ruby version to be hardcoded which won't
-    # scale very well.
-    r = bash "install ruby 1.8" do
-      code <<-EOH
-      yum install ruby-1.8.* --assumeyes
-      EOH
-      action :nothing
-    end
-    r.run_action(:run)
-
-    # Install rubygems
-    r = package "rubygems" do
-      action :nothing
-    end
-    r.run_action(:install)
-
-  elsif node[:platform] =~ /ubuntu/
-    ruby_packages = ["ruby1.8", "rubygems"]
-    ruby_packages.each do |p|
-      r = package p do
-        action :nothing
-      end
-      r.run_action(:install)
-    end
-    r = bash "use ruby 1.8 version" do
-      code <<-EOH
-      update-alternatives --set ruby "/usr/bin/ruby1.8"
-      update-alternatives --set gem "/usr/bin/gem1.8"
-      EOH
-      action :nothing
-    end
-    r.run_action(:run)
   end
 
   # Repopulate gem environment
@@ -129,6 +85,7 @@ action :install do
   log "  Installing passenger gem"
   gem_package "passenger" do
     gem_binary "/usr/bin/gem"
+    version "3.0.19"
     action :install
   end
 
@@ -146,7 +103,7 @@ action :install do
 end
 
 
-# Setup apache/passenger virtual host
+# Sets up apache/passenger virtual host
 action :setup_vhost do
   port = new_resource.port
 
@@ -158,9 +115,12 @@ action :setup_vhost do
     only_if { ::File.exists?("/etc/httpd/conf.d/ssl.conf") }
   end
 
+  log "  Module dependencies which will be installed:" +
+    " #{node[:app_passenger][:module_dependencies]}"
   # Enabling required apache modules
-  node[:app][:module_dependencies].each do |mod|
-    # See https://github.com/rightscale/cookbooks/blob/master/apache2/definitions/apache_module.rb for the "apache_module" definition.
+  node[:app_passenger][:module_dependencies].each do |mod|
+    # See https://github.com/rightscale/cookbooks/blob/master/apache2/definitions/apache_module.rb
+    # for the "apache_module" definition.
     apache_module mod
   end
 
@@ -206,7 +166,7 @@ action :setup_vhost do
 end
 
 
-# Setup project db connection
+# Sets up Passenger database connection
 action :setup_db_connection do
 
   deploy_dir = new_resource.destination
@@ -223,6 +183,9 @@ action :setup_db_connection do
     group node[:app][:group]
     database db_name
     driver_type "ruby"
+    vars(
+      :environment => node[:app_passenger][:project][:environment]
+    )
   end
 
   # Creating bash file for manual $RAILS_ENV setup
@@ -239,7 +202,7 @@ action :setup_db_connection do
 end
 
 
-# Download/Update application repository
+# Downloads/Updates application repository
 action :code_update do
   deploy_dir = new_resource.destination
 
@@ -279,6 +242,12 @@ action :code_update do
     to "/mnt/ephemeral/log/rails/#{node[:web_apache][:application_name]}"
   end
 
+  # Sets permissions for the code to be owned by the application user.
+  bash "chown_home" do
+    flags "-ex"
+    code "chown -R #{node[:app][:user]}:#{node[:app][:group]} #{deploy_dir}"
+  end
+
   log "  Generating new logrotate config for rails application"
   # See cookbooks/rightscale/definitions/rightscale_logrotate_app.rb for the "rightscale_logrotate_app" definition.
   rightscale_logrotate_app "rails" do
@@ -293,13 +262,12 @@ action :code_update do
 end
 
 
-# Setup monitoring tools for passenger
+# Sets up monitoring tools for passenger
 action :setup_monitoring do
   plugin_path = "#{node[:rightscale][:collectd_lib]}/plugins/passenger"
 
-  log "  Stopping collectd service"
   service "collectd" do
-    action :stop
+    action :enable
   end
 
   directory "#{node[:rightscale][:collectd_lib]}/plugins/" do
@@ -318,6 +286,7 @@ action :setup_monitoring do
       :passenger_memory_stats => "#{node[:app_passenger][:passenger_bin_dir]}/passenger-memory-stats",
       :passenger_status => "#{node[:app_passenger][:passenger_bin_dir]}/passenger-status"
     )
+    notifies :restart, resources(:service => "collectd")
   end
 
   # Removing previous passenger.conf in case of stop-start
@@ -335,6 +304,7 @@ action :setup_monitoring do
       :apache_user => node[:app][:user],
       :plugin_path => plugin_path
     )
+    notifies :restart, resources(:service => "collectd")
   end
 
   # Collectd exec cannot run scripts under root user, so we need to give ability to use sudo to "apache" user
@@ -358,7 +328,7 @@ action :setup_monitoring do
       :passenger_bin_dir => node[:app_passenger][:passenger_bin_dir]
     )
     not_if { ::File.exists?("/etc/sudoers.d/passenger-status") }
-    notifies :start, resources(:service => "collectd")
+    notifies :restart, resources(:service => "collectd")
   end
 
 end

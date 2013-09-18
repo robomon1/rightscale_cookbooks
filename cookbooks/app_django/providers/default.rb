@@ -1,11 +1,14 @@
 #
 # Cookbook Name:: app_django
 #
-# Copyright RightScale, Inc. All rights reserved.  All access and use subject to the
-# RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
-# if applicable, other agreements such as a RightScale Master Subscription Agreement.
+# Copyright RightScale, Inc. All rights reserved.
+# All access and use subject to the RightScale Terms of Service available at
+# http://www.rightscale.com/terms.php and, if applicable, other agreements
+# such as a RightScale Master Subscription Agreement.
 
-# Stop apache
+# @resource app
+
+# Stops apache
 action :stop do
   log "  Running stop sequence"
   service "apache2" do
@@ -14,7 +17,7 @@ action :stop do
   end
 end
 
-# Start apache
+# Starts apache
 action :start do
   log "  Running start sequence"
   service "apache2" do
@@ -23,7 +26,7 @@ action :start do
   end
 end
 
-# Reload apache
+# Reloads apache
 action :reload do
   log "  Running reload sequence"
   service "apache2" do
@@ -32,7 +35,7 @@ action :reload do
   end
 end
 
-# Restart apache
+# Restarts apache
 action :restart do
   log "  Running restart sequence"
   # Calls the :stop action.
@@ -42,6 +45,7 @@ action :restart do
   action_start
 end
 
+# Installs Django server
 action :install do
   # Installing required packages
   packages = new_resource.packages
@@ -57,10 +61,12 @@ action :install do
     not_if { ::File.exists?("#{node[:app_django][:pip_bin]}") }
   end
 
-  log "  Module dependencies which will be installed: #{node[:app][:module_dependencies]}"
+  log "  Module dependencies which will be installed:" +
+    " #{node[:app_django][:module_dependencies]}"
   # Installing python modules dependencies
-  node[:app][:module_dependencies].each do |mod|
-    # See https://github.com/rightscale/cookbooks/blob/master/apache2/definitions/apache_module.rb for the "apache_module" definition.
+  node[:app_django][:module_dependencies].each do |mod|
+    # See https://github.com/rightscale/cookbooks/blob/master/apache2/definitions/apache_module.rb
+    # for the "apache_module" definition.
     apache_module mod
   end
 
@@ -91,7 +97,7 @@ action :install do
 
 end
 
-# Setup apache PHP virtual host
+# Sets up apache virtual host for Django
 action :setup_vhost do
 
   project_root = new_resource.destination
@@ -138,7 +144,7 @@ action :setup_vhost do
 
 end
 
-# Setup Django Database Connection
+# Sets up Django database Connection
 action :setup_db_connection do
 
   project_root = new_resource.destination
@@ -166,11 +172,14 @@ action :setup_db_connection do
     database db_name
     cookbook "app_django"
     driver_type "python"
+    vars(
+      :django_debug_mode => node[:app_django][:app][:debug_mode]
+    )
   end
 
 end
 
-# Download/Update application repository
+# Downloads/Updates application repository
 action :code_update do
 
   deploy_dir = new_resource.destination
@@ -200,13 +209,9 @@ action :code_update do
     only_if { ::File.exists?("#{deploy_dir}/requirements.txt") }
   end
 
-  # Restarting apache
-  # Calls the :restart action.
-  action_restart
-
 end
 
-# Set monitoring tools for Django application. Not implemented.
+# Sets up monitoring tools for Django application. Not implemented.
 action :setup_monitoring do
   log "Monitoring resource is not implemented in django framework yet. Use apache monitoring instead."
 end

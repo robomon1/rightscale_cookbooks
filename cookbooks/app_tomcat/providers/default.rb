@@ -1,11 +1,14 @@
 #
 # Cookbook Name:: app_tomcat
 #
-# Copyright RightScale, Inc. All rights reserved.  All access and use subject to the
-# RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
-# if applicable, other agreements such as a RightScale Master Subscription Agreement.
+# Copyright RightScale, Inc. All rights reserved.
+# All access and use subject to the RightScale Terms of Service available at
+# http://www.rightscale.com/terms.php and, if applicable, other agreements
+# such as a RightScale Master Subscription Agreement.
 
-# Stop tomcat service
+# @resource app
+
+# Stops tomcat service
 action :stop do
 
   version = node[:app][:version].to_i
@@ -16,7 +19,7 @@ action :stop do
   end
 end
 
-# Start tomcat service
+# Starts tomcat service
 action :start do
 
   version = node[:app][:version].to_i
@@ -27,7 +30,7 @@ action :start do
   end
 end
 
-# Restart tomcat service
+# Restarts tomcat service
 action :restart do
   log "  Running restart sequence"
   # Calls the :stop action.
@@ -37,12 +40,12 @@ action :restart do
   action_start
 end
 
-# Reload tomcat service
+# Reloads tomcat service
 action :reload do
   log "  Action not implemented"
 end
 
-#Installing required packages and prepare system for tomcat
+#Installs required packages and prepares system for tomcat
 action :install do
 
   version = node[:app][:version].to_i
@@ -102,7 +105,7 @@ action :install do
 
 end
 
-# Setup apache virtual host and corresponding tomcat configs
+# Sets up apache virtual host and corresponding tomcat configs
 action :setup_vhost do
 
   port = new_resource.port
@@ -130,8 +133,6 @@ action :setup_vhost do
     )
   end
 
-  # Define internal port for tomcat. It must be different than apache ports
-  tomcat_port = port + 1
   log "  Creating server.xml"
   template "/etc/tomcat#{version}/server.xml" do
     action :create
@@ -141,8 +142,9 @@ action :setup_vhost do
     mode "0644"
     cookbook 'app_tomcat'
     variables(
+      :tomcat_version => node[:app][:version],
       :doc_root => app_root,
-      :app_port => tomcat_port.to_s
+      :app_port => node[:app_tomcat][:internal_port]
     )
   end
 
@@ -228,16 +230,20 @@ action :setup_vhost do
       source "mod_jk.conf.erb"
       variables(
         :jkworkersfile => node[:app_tomcat][:jkworkersfile],
-        :apache_log_dir => node[:apache][:log_dir]
+        :apache_log_dir => node[:apache][:log_dir],
+        :platform_version => node[:platform_version]
       )
       cookbook 'app_tomcat'
     end
 
     log "  Finished configuring mod_jk, creating the application vhost"
 
+    log "  Module dependencies which will be installed:" +
+      " #{node[:app_tomcat][:module_dependencies]}"
     # Enabling required apache modules
-    node[:app][:module_dependencies].each do |mod|
-      # See https://github.com/rightscale/cookbooks/blob/master/apache2/definitions/apache_module.rb for the "apache_module" definition.
+    node[:app_tomcat][:module_dependencies].each do |mod|
+      # See https://github.com/rightscale/cookbooks/blob/master/apache2/definitions/apache_module.rb
+      # for the "apache_module" definition.
       apache_module mod
     end
 
@@ -286,7 +292,7 @@ action :setup_vhost do
 
 end
 
-# Setup project db connection
+# Sets up database connection
 action :setup_db_connection do
 
   db_name = new_resource.database_name
@@ -350,7 +356,7 @@ action :setup_db_connection do
   end
 end
 
-# Setup monitoring tools for tomcat
+# Sets up monitoring tools for tomcat
 action :setup_monitoring do
 
   version=node[:app][:version].to_i
@@ -383,7 +389,7 @@ CATALINA_OPTS="\$CATALINA_OPTS -Djcd.host=#{node[:rightscale][:instance_uuid]} -
 
 end
 
-# Download/Update application repository
+# Downloads/Updates application repository
 action :code_update do
 
   deploy_dir = new_resource.destination
@@ -416,9 +422,5 @@ action :code_update do
     EOH
     only_if { node[:app_tomcat][:code][:root_war] != "ROOT.war" }
   end
-  # Restarting tomcat service.
-  # This will automatically deploy ROOT.war if it is available in application root directory
-  # Calls the :restart action.
-  action_restart
 
 end

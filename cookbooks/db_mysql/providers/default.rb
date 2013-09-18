@@ -1,19 +1,24 @@
 #
 # Cookbook Name:: db_mysql
 #
-# Copyright RightScale, Inc. All rights reserved.  All access and use subject to the
-# RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
-# if applicable, other agreements such as a RightScale Master Subscription Agreement.
+# Copyright RightScale, Inc. All rights reserved.
+# All access and use subject to the RightScale Terms of Service available at
+# http://www.rightscale.com/terms.php and, if applicable, other agreements
+# such as a RightScale Master Subscription Agreement.
+
+# @resource db
 
 include RightScale::Database::Helper
 include RightScale::Database::MySQL::Helper
 
+# Stops MySQL service
 action :stop do
   service node[:db_mysql][:service_name] do
     action :stop
   end
 end
 
+# Starts MySQL service
 action :start do
   begin
     SystemTimer.timeout_after(node[:db_mysql][:init_timeout].to_i) do
@@ -28,12 +33,14 @@ action :start do
   end
 end
 
+# Restarts MySQL service
 action :restart do
   service node[:db_mysql][:service_name] do
     action :restart
   end
 end
 
+# Checks status of MySQL service
 action :status do
   # See cookbooks/db_mysql/libraries/helper.rb for the "init" method.
   # See "rightscale_tools" gem for the "status" method.
@@ -42,6 +49,7 @@ action :status do
   Chef::Log.info "  Database Status:\n#{status}"
 end
 
+# Locks MySQL database
 action :lock do
   # See cookbooks/db_mysql/libraries/helper.rb for the "init" method.
   # See "rightscale_tools" gem for the "lock" method.
@@ -49,6 +57,7 @@ action :lock do
   @db.lock
 end
 
+# Unlocks MySQL database
 action :unlock do
   # See cookbooks/db_mysql/libraries/helper.rb for the "init" method.
   # See "rightscale_tools" gem for the "unlock" method.
@@ -56,6 +65,7 @@ action :unlock do
   @db.unlock
 end
 
+# Relocates MySQL database data directory
 action :move_data_dir do
   # See cookbooks/db_mysql/libraries/helper.rb for the "init" method.
   # See "rightscale_tools" gem for the "move_datadir" method.
@@ -63,6 +73,7 @@ action :move_data_dir do
   @db.move_datadir(new_resource.name, node[:db_mysql][:datadir])
 end
 
+# Resets MySQL database to a pristine state
 action :reset do
   # Set read/write in read_write_status.cnf
   db_mysql_set_mysql_read_only "setup mysql read/write" do
@@ -73,8 +84,12 @@ action :reset do
   # See "rightscale_tools" gem for the "reset" method.
   @db = init(new_resource)
   @db.reset(new_resource.name, node[:db_mysql][:datadir])
+  # Make sure the database has all its dependencies installed and configured.
+  action_install_server
 end
 
+# Sends a remote_recipe that requests a MySQL database to update it's firewall
+# rules
 action :firewall_update_request do
   # See cookbooks/sys_firewall/providers/default.rb for the "update_request" action.
   sys_firewall "Sending request to open port 3306 (MySQL) allowing this server to connect" do
@@ -86,6 +101,7 @@ action :firewall_update_request do
   end
 end
 
+# Updates MySQL database firewall rules
 action :firewall_update do
   # See cookbooks/sys_firewall/providers/default.rb for the "update" action.
   sys_firewall "Opening port 3306 (MySQL) for tagged '#{new_resource.machine_tag}' to connect" do
@@ -96,7 +112,7 @@ action :firewall_update do
   end
 end
 
-
+# Writes backup information needed during restore
 action :write_backup_info do
   # See cookbooks/db/libraries/helper.rb for the "db_state_get" method.
   # See cookbooks/db/libraries/helper.rb for the "RightScale::Database::MySQL::Helper" class.
@@ -122,11 +138,19 @@ action :write_backup_info do
   masterstatus['DB_Version'] = version # save the version number
 
   Chef::Log.info "  Saving master info...:\n#{masterstatus.to_yaml}"
-  ::File.open(::File.join(node[:db][:data_dir], RightScale::Database::MySQL::Helper::SNAPSHOT_POSITION_FILENAME), ::File::CREAT|::File::TRUNC|::File::RDWR) do |out|
+  # See cookbooks/db/libraries/helper.rb
+  # for the "RightScale::Database::Helper" class.
+  ::File.open(
+    ::File.join(node[:db][:data_dir],
+    RightScale::Database::Helper::SNAPSHOT_POSITION_FILENAME),
+    ::File::CREAT|::File::TRUNC|::File::RDWR
+  ) do |out|
     YAML.dump(masterstatus, out)
   end
 end
 
+# Verifies MySQL database is in a pristine state before performing a restore to
+# prevent overwriting of an existing database
 action :pre_restore_check do
   # See cookbooks/db_mysql/libraries/helper.rb for the "init" method.
   # See "rightscale_tools" gem for the "pre_restore_sanity_check" method.
@@ -134,11 +158,12 @@ action :pre_restore_check do
   @db.pre_restore_sanity_check
 end
 
+# Validates the restored backup and cleans up the instance after restore.
 action :post_restore_cleanup do
   # Performs checks for snapshot compatibility with current server.
-  # See cookbooks/db_mysql/libraries/helper.rb
-  # for the "RightScale::Database::MySQL::Helper" class.
-  master_info = RightScale::Database::MySQL::Helper.load_replication_info(node)
+  # See cookbooks/db/libraries/helper.rb
+  # for the "RightScale::Database::Helper" class.
+  master_info = RightScale::Database::Helper.load_replication_info(node)
 
   # Checks version matches because not all 11H2 snapshots (prior to 5.5 release)
   # saved provider or version. Assume MySQL 5.1 if nil.
@@ -253,6 +278,7 @@ action :post_restore_cleanup do
 
 end
 
+# Verifies whether the MySQL database is in a good state for taking a backup.
 action :pre_backup_check do
   # See cookbooks/db_mysql/libraries/helper.rb for the "init" method.
   # See "rightscale_tools" gem for the "pre_backup_check" method.
@@ -260,6 +286,7 @@ action :pre_backup_check do
   @db.pre_backup_check
 end
 
+# Cleans up instance after backup
 action :post_backup_cleanup do
   # See cookbooks/db_mysql/libraries/helper.rb for the "init" method.
   # See "rightscale_tools" gem for the "post_backup_steps" method.
@@ -267,6 +294,7 @@ action :post_backup_cleanup do
   @db.post_backup_steps
 end
 
+# Sets MySQL database user privileges
 action :set_privileges do
   priv = new_resource.privilege
   priv_username = new_resource.privilege_username
@@ -281,15 +309,7 @@ action :set_privileges do
   end
 end
 
-action :remove_anonymous do
-  require 'mysql'
-  con = Mysql.new('localhost', 'root')
-  host = `hostname`.strip
-  con.query("DELETE FROM mysql.user WHERE user='' AND host='#{host}'")
-
-  con.close
-end
-
+# Installs MySQL database client driver
 action :install_client do
 
   version = new_resource.db_version
@@ -370,10 +390,11 @@ action :install_client do
 
   # Installs MySQL client gem in compile phase.
   # It is required by rightscale_tools gem for MySQL operations.
-  gem_package 'mysql' do
-    gem_binary '/opt/rightscale/sandbox/bin/gem'
-    version '2.7'
-    options '-- --build-flags --with-mysql-config'
+  gem_package "mysql sandbox gem" do
+    package_name "mysql"
+    version "2.7"
+    gem_binary "/opt/rightscale/sandbox/bin/gem"
+    options "-- --build-flags --with-mysql-config"
   end
 
   ruby_block 'clear gem paths for mysql' do
@@ -385,6 +406,7 @@ action :install_client do
 
 end
 
+# Installs MySQL database server
 action :install_server do
 
   platform = node[:platform]
@@ -560,6 +582,7 @@ action :install_server do
   db_mysql_set_mycnf "setup_mycnf" do
     server_id RightScale::Database::MySQL::Helper.mycnf_uuid(node)
     relay_log RightScale::Database::MySQL::Helper.mycnf_relay_log(node)
+    innodb_log_file_size ::File.size?("/var/lib/mysql/ib_logfile0")
     compressed_protocol node[:db_mysql][:compressed_protocol] ==
       "enabled" ? true : false
   end
@@ -593,6 +616,9 @@ action :install_server do
     source "sysconfig-mysqld.erb"
     mode "0755"
     cookbook "db_mysql"
+    variables(
+      :init_timeout => node[:db_mysql][:init_timeout]
+    )
     only_if { platform =~ /redhat|centos/ }
   end
 
@@ -643,8 +669,30 @@ action :install_server do
     EOH
   end
 
+  # Removes anonymous users so all access to the database requires a valid
+  # username and password.
+  #
+  # By default MySQL creates anonymous users that allow access to the database
+  # via the localhost interface without requiring a username or password.
+  # For more information, please see
+  # http://dev.mysql.com/doc/refman/5.5/en/default-privileges.html
+  # 'DELETE' query is used here instead of the 'DROP USER' command suggested by
+  # MySQL docs as the 'DROP USER' command is not idempotent for Chef recipes.
+  #
+  log "  Removing anonymous users from database"
+  ruby_block "remove anonymous users" do
+    block do
+      require "mysql"
+      con = Mysql.new("localhost", "root")
+      con.query("DELETE FROM mysql.user WHERE user=''")
+      con.query("FLUSH PRIVILEGES")
+      con.close
+    end
+  end
 end
 
+# Installs the driver packages for applications servers based on their
+# driver type
 action :install_client_driver do
   type = new_resource.driver_type
   log "  Installing mysql support for #{type} driver"
@@ -679,7 +727,6 @@ action :install_client_driver do
   when "java"
     # This adapter type is used by Tomcat application servers.
     node[:db][:client][:driver] = "com.mysql.jdbc.Driver"
-
     package "#{type} mysql integration" do
       package_name value_for_platform(
         ["centos", "redhat"] => {
@@ -693,17 +740,31 @@ action :install_client_driver do
     end
   when "ruby"
     # This adapter type is used by Apache Rails Passenger application servers.
-    node[:db][:client][:driver] = "mysql"
+    version = Mixlib::ShellOut.new("ruby --version")
+    version.run_command.error!
 
-    gem_package 'mysql' do
+    case version.stdout
+    when /1\.8/
+      node[:db][:client][:driver] = "mysql"
+    when /1\.9/
+      node[:db][:client][:driver] = "mysql2"
+    else
+      raise "Ruby #{version.stdout} is not supported."
+    end
+
+    log "  Setting database adapter to #{node[:db][:client][:driver]}."
+
+    gem_package "mysql system gem" do
+      package_name node[:db][:client][:driver]
       gem_binary "/usr/bin/gem"
-      options '-- --build-flags --with-mysql-config'
+      options "-- --build-flags --with-mysql-config"
     end
   else
     raise "Unknown driver type specified: #{type}"
   end
 end
 
+# Installs and configures collectd plugins for the MySQL database server
 action :setup_monitoring do
   # See cookbooks/db/libraries/helper.rb for the "db_state_get" method.
   db_state_get node
@@ -737,6 +798,10 @@ action :setup_monitoring do
     backup false
     cookbook "db_mysql"
     notifies :restart, resources(:service => "collectd")
+    variables(
+      :collectd_master_slave_mode =>
+        node[:db_mysql][:collectd_master_slave_mode]
+    )
   end
 
   # Sends warning if not centos/redhat or ubuntu.
@@ -747,6 +812,7 @@ action :setup_monitoring do
 
 end
 
+# Sets database replication privileges for a slave
 action :grant_replication_slave do
   require 'mysql'
 
@@ -761,6 +827,7 @@ action :grant_replication_slave do
   con.close
 end
 
+# Promotes slave database to master
 action :promote do
   # See cookbooks/db/libraries/helper.rb for the "db_state_get" method.
   db_state_get node
@@ -930,6 +997,14 @@ action :promote do
           'UNLOCK TABLES',
           previous_master
         )
+
+        # Sets READ_ONLY for oldmaster, now a slave.
+        RightScale::Database::MySQL::Helper.do_query(
+          node,
+          'SET GLOBAL READ_ONLY=1',
+          previous_master
+        )
+
         SystemTimer.timeout_after(
           RightScale::Database::MySQL::Helper::DEFAULT_CRITICAL_TIMEOUT
         ) do
@@ -958,18 +1033,19 @@ action :promote do
   end
 end
 
-
+# Configures replication between a slave server and master
 action :enable_replication do
   # See cookbooks/db/libraries/helper.rb for the "db_state_get" method.
   db_state_get node
   current_restore_process = new_resource.restore_process
 
   # Check the volume before performing any actions.  If invalid raise error and exit.
-  # See cookbooks/db_mysql/libraries/helper.rb for the "RightScale::Database::MySQL::Helper" class.
+  # See cookbooks/db/libraries/helper.rb
+  # for the "RightScale::Database::Helper" class.
   ruby_block "validate_master" do
     not_if { current_restore_process == :no_restore }
     block do
-      master_info = RightScale::Database::MySQL::Helper.load_replication_info(node)
+      master_info = RightScale::Database::Helper.load_replication_info(node)
 
       # Checks that the snapshot is from the current master or a slave
       # associated with the current master.
@@ -1041,7 +1117,7 @@ action :enable_replication do
   ruby_block "configure_replication" do
     not_if { current_restore_process == :no_restore }
     block do
-      master_info = RightScale::Database::MySQL::Helper.load_replication_info(node)
+      master_info = RightScale::Database::Helper.load_replication_info(node)
       newmaster_host = master_info['Master_IP']
       newmaster_logfile = master_info['File']
       newmaster_position = master_info['Position']
@@ -1075,6 +1151,7 @@ action :enable_replication do
 
 end
 
+# Generates dump file
 action :generate_dump_file do
 
   db_name = new_resource.db_name
@@ -1086,6 +1163,7 @@ action :generate_dump_file do
 
 end
 
+# Restores MySQL database from dump file
 action :restore_from_dump_file do
 
   db_name = new_resource.db_name

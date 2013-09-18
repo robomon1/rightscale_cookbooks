@@ -1,20 +1,23 @@
 maintainer       "RightScale, Inc."
 maintainer_email "support@rightscale.com"
 license          "Copyright RightScale, Inc. All rights reserved."
-description      "RightScale Database Manager"
-long_description IO.read(File.join(File.dirname(__FILE__), 'README.rdoc'))
-version          "13.3.0"
+description      "This cookbook provides a set of database recipes used by" +
+                 " the RightScale Database Manager ServerTemplates. This" +
+                 " cookbook does not contain a specific database implementation," +
+                 " but generic recipes that use the Lightweight Resource" +
+                 " Provider (LWRP) interface."
+long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
+version          "13.5.0"
 
-# supports "centos", "~> 5.8", "~> 6"
-# supports "redhat", "~> 5.8"
-# supports "ubuntu", "~> 10.04", "~> 12.04"
+supports "centos"
+supports "redhat"
+supports "ubuntu"
 
 depends "rightscale"
 depends "block_device"
 depends "sys_firewall"
 depends "db_mysql"
 depends "db_postgres"
-
 
 recipe "db::default",
   "Selects and installs database client. It also sets up the provider" +
@@ -58,9 +61,6 @@ recipe "db::setup_privileges_admin",
 recipe "db::setup_privileges_application",
   "Adds the username and password for application privileges."
 
-recipe "db::remove_anonymous_users",
-  "Removes anonymous users from database."
-
 recipe "db::do_secondary_backup",
   :description =>
     "Creates a backup of the database and uploads it to a secondary cloud" +
@@ -72,6 +72,12 @@ recipe "db::do_secondary_backup",
 recipe "db::do_secondary_restore",
   "Restores the database from the most recently completed backup available" +
   " in a secondary location."
+
+recipe "db::do_secondary_backup_schedule_enable",
+  "Enables db::do_secondary_backup to be run periodically."
+
+recipe "db::do_secondary_backup_schedule_disable",
+  "Disables db::do_secondary_backup from being run periodically."
 
 recipe "db::do_force_reset",
   "Resets the database back to a pristine state." +
@@ -92,7 +98,6 @@ recipe "db::do_dump_schedule_enable",
 
 recipe "db::do_dump_schedule_disable",
   "Disables the daily run of do_dump_export."
-
 
 # == Database Firewall Recipes
 #
@@ -119,7 +124,6 @@ recipe "db::request_appserver_deny",
   " to all database servers in the deployment that are tagged with the" +
   " database:active=true tag." +
   " This should be run on an application server upon decommissioning."
-
 
 # == Master/Slave Recipes
 #
@@ -304,9 +308,9 @@ attribute "db/replication/network_interface",
   :default => "private",
   :recipes => [
     "db::install_server",
-    "db::do_promote_to_master.rb",
-    "db::request_master_allow.rb",
-    "db::request_master_deny.rb",
+    "db::do_promote_to_master",
+    "db::request_master_allow",
+    "db::request_master_deny",
     "db::do_set_dns_slave"
   ]
 
@@ -402,7 +406,9 @@ attribute "db/backup/lineage",
     "db::do_primary_backup_schedule_disable",
     "db::do_force_reset",
     "db::do_secondary_backup",
-    "db::do_secondary_restore"
+    "db::do_secondary_restore",
+    "db::do_secondary_backup_schedule_enable",
+    "db::do_secondary_backup_schedule_disable"
   ]
 
 attribute "db/backup/lineage_override",
@@ -497,10 +503,53 @@ attribute "db/backup/primary/slave/cron/minute",
   :required => "optional",
   :recipes => ["db::do_primary_backup_schedule_enable"]
 
+attribute "db/backup/secondary/master/cron/hour",
+  :display_name => "Master Secondary Backup Cron Hour",
+  :description =>
+    "Defines the hour of the day when the secondary backup will be taken of" +
+    " the master database. Backups of the master are taken daily. By default," +
+    " an hour will be randomly chosen at launch time. Otherwise, the time of" +
+    " the backup is defined by 'Master Secondary Backup Cron Hour' and" +
+    " 'Master Secondary Backup Cron Minute'. Uses standard crontab format" +
+    " (e.g., 23 for 11:00 PM).",
+  :required => "optional",
+  :recipes => [ 'db::do_secondary_backup_schedule_enable' ]
+
+attribute "db/backup/secondary/slave/cron/hour",
+  :display_name => "Slave Secondary Backup Cron Hour",
+  :description =>
+    "By default, secondary backups of the slave database are taken hourly." +
+    " However, if you specify a value in this input (e.g., 23 for 11:00 PM)," +
+    " then backups will occur once per day at the specified hour, rather than" +
+    " hourly. Uses standard crontab format (e.g., 23 for 11:00 PM).",
+  :required => "optional",
+  :recipes => [ 'db::do_secondary_backup_schedule_enable' ]
+
+attribute "db/backup/secondary/master/cron/minute",
+  :display_name => "Master Secondary Backup Cron Minute",
+  :description =>
+    "Defines the minute of the hour when the secondary backup will be taken" +
+    " of the master database. Backups of the master are taken daily. By" +
+    " default, a minute will be randomly chosen at launch time. Otherwise," +
+    " the time of the backup is defined by 'Master Secondary Backup Cron" +
+    " Hour' and 'Master Secondary Backup Cron Minute'. Uses standard crontab" +
+    " format (e.g., 30 for minute 30 of the hour).",
+  :required => "optional",
+  :recipes => [ 'db::do_secondary_backup_schedule_enable' ]
+
+attribute "db/backup/secondary/slave/cron/minute",
+  :display_name => "Slave Secondary Backup Cron Minute",
+  :description =>
+    "Defines the minute of the hour when the secondary backup will be taken" +
+    " of the slave database. Backups of the slave are taken hourly. By" +
+    " default, a minute will be randomly chosen at launch time. Uses standard" +
+    " crontab format (e.g., 30 for minute 30 of the hour). Uses standard" +
+    " crontab format (e.g., 30 for minute 30 of the hour).",
+  :required => "optional",
+  :recipes => [ 'db::do_secondary_backup_schedule_enable' ]
 
 # == Import/export attributes
 #
-
 attribute "db/dump",
   :display_name => "Import/export settings for database dump file management.",
   :type => "hash"
@@ -515,10 +564,11 @@ attribute "db/dump/storage_account_provider",
   :required => "required",
   :choice => [
     "s3",
-    "cloudfiles",
-    "cloudfilesuk",
+    "Cloud_Files",
+    "Cloud_Files_UK",
     "google",
     "azure",
+    "swift",
     "SoftLayer_Dallas",
     "SoftLayer_Singapore",
     "SoftLayer_Amsterdam"
@@ -537,6 +587,7 @@ attribute "db/dump/storage_account_id",
     " For Amazon S3, use your Amazon access key ID" +
     " (e.g., cred:AWS_ACCESS_KEY_ID). For Rackspace Cloud Files, use your" +
     " Rackspace login username (e.g., cred:RACKSPACE_USERNAME)." +
+    " For OpenStack Swift the format is: 'tenantID:username'." +
     " Example: cred:AWS_ACCESS_KEY_ID",
   :required => "required",
   :recipes => [
@@ -555,6 +606,20 @@ attribute "db/dump/storage_account_secret",
     " For Rackspace Cloud Files, use your Rackspace account API key" +
     " (e.g., cred:RACKSPACE_AUTH_KEY). Example: cred:AWS_SECRET_ACCESS_KEY",
   :required => "required",
+  :recipes => [
+    "db::do_dump_import",
+    "db::do_dump_export",
+    "db::do_dump_schedule_enable"
+  ]
+
+attribute "db/dump/storage_account_endpoint",
+  :display_name => "Dump Storage Endpoint URL",
+  :description =>
+    "The endpoint URL for the storage cloud. This is used to override the" +
+    " default endpoint or for generic storage clouds such as Swift." +
+    " Example: http://endpoint_ip:5000/v2.0/tokens",
+  :required => "optional",
+  :default => "",
   :recipes => [
     "db::do_dump_import",
     "db::do_dump_export",

@@ -1,11 +1,14 @@
 #
 # Cookbook Name:: repo_git
 #
-# Copyright RightScale, Inc. All rights reserved.  All access and use subject to the
-# RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
-# if applicable, other agreements such as a RightScale Master Subscription Agreement.
+# Copyright RightScale, Inc. All rights reserved.
+# All access and use subject to the RightScale Terms of Service available at
+# http://www.rightscale.com/terms.php and, if applicable, other agreements
+# such as a RightScale Master Subscription Agreement.
 
-# Setup repository URL and other attributes.
+# @resource repo
+
+# Sets up repository URL and other attributes.
 action :setup_attributes do
 
   branch = new_resource.revision
@@ -23,7 +26,7 @@ action :setup_attributes do
 end
 
 
-# Pull code from a determined repository to a specified destination.
+# Pulls code from a determined repository to a specified destination.
 action :pull do
 
   capistrano_dir = "/home/capistrano_repo"
@@ -67,6 +70,7 @@ action :pull do
     repository repository_url
     reference revision
     user app_user
+    enable_submodules true
     action git_action
   end
 
@@ -82,7 +86,8 @@ action :pull do
 end
 
 
-# Pull code from a determined repository to a specified destination and create a capistrano-style deployment.
+# Pulls code from a determined repository to a specified destination and create
+# a capistrano-style deployment.
 action :capistrano_pull do
 
   # Add ssh key and exec script
